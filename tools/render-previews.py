@@ -93,6 +93,9 @@ wired = [
     dict(device="enp1s0", thunderbolt=False, state="connected", connected=True, mac="02:00:5E:10:00:02",
          speed="5000", mtu="1500", addresses="192.168.1.60/24", gateway="192.168.1.1", dns="192.168.1.1",
          profile="Wired connection 1", uuid="demo-wired", method="auto", defaultRoute=True),
+    dict(device="enp2s0", thunderbolt=False, state="unavailable", connected=False, mac="02:00:5E:10:00:03",
+         speed="", mtu="1500", addresses="", gateway="", dns="", profile="", uuid="", method="",
+         defaultRoute=True),
 ]
 
 views = {
@@ -102,6 +105,7 @@ views = {
                  'plugin.ipMessage = "Filled from current subnet 192.168.1.0/24. Review, then save.";'
                  'plugin.publicIp = "203.0.113.42";',
     "wired": f'plugin.wiredView = true; plugin.wiredLinks = {json.dumps(wired)};',
+    "wired-connected": f'plugin.wiredView = true; plugin.wiredConnectedOnly = true; plugin.wiredLinks = {json.dumps(wired)};',
 }
 adapter = (work / "Ui" / "KeyboardPanel.qml").read_text()
 (ROOT / "docs").mkdir(exist_ok=True)

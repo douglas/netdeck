@@ -8,6 +8,7 @@
   Read-only; *Edit IP settings ›* opens that link's profile in IP settings.
   Styled like the main screen (hero, detail grid, section header), with a
   copy button beside each IP address.
+  A *Connected only* switch in its header hides links with no cable or peer.
 - README screenshots of the network panel and IP settings, rendered from the
   real QML with synthetic data by `tools/render-previews.py`.
 

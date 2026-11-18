@@ -138,6 +138,9 @@ Panel {
   // read-only, from `settings.py wired`.
   property bool wiredView: false
   property var wiredLinks: []
+  // Hide links with no cable or peer, so only the live ones show.
+  property bool wiredConnectedOnly: false
+  readonly property var wiredShown: wiredConnectedOnly ? wiredLinks.filter(function(l) { return l.connected }) : wiredLinks
   property string wiredMessage: ""
   function openWired() {
     root.ipEditing = false
@@ -1260,19 +1263,50 @@ Panel {
           onClicked: root.refreshWired()
         }
       }
-      PanelSectionHeader {
-        text: "WIRED LINKS"
-        foreground: root.bar.foreground
-        fontFamily: root.bar.fontFamily
+      // Same header shape as the Wi-Fi band's "AUTOMATIC" switch.
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(wiredHeader.implicitHeight, wiredFilterRow.implicitHeight)
+        PanelSectionHeader {
+          id: wiredHeader
+          text: "WIRED LINKS"
+          foreground: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Row {
+          id: wiredFilterRow
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(6)
+          PanelSectionHeader {
+            id: wiredFilterLabel
+            text: "CONNECTED ONLY"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          ToggleSwitch {
+            trackHeight: Math.round(wiredFilterLabel.font.pixelSize * 1.2)
+            cursorPad: Style.space(3)
+            anchors.verticalCenter: wiredFilterLabel.verticalCenter
+            anchors.verticalCenterOffset: Math.round(wiredFilterLabel.topPadding / 2)
+            checked: root.wiredConnectedOnly
+            foreground: root.bar.foreground
+            onToggled: root.wiredConnectedOnly = !root.wiredConnectedOnly
+          }
+        }
       }
       InfoValue {
         width: parent.width
-        visible: root.wiredMessage !== ""
-        text: root.wiredMessage
+        readonly property string filteredMessage: root.wiredLinks.length && !root.wiredShown.length ? "No wired link is connected." : ""
+        visible: text !== ""
+        text: root.wiredMessage || filteredMessage
         wrapMode: Text.Wrap
       }
       Repeater {
-        model: root.wiredLinks
+        model: root.wiredShown
         delegate: Column {
           id: link
           required property var modelData
