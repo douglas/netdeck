@@ -11,13 +11,19 @@ widget.
 
 ![Wired links with a Thunderbolt link and an Ethernet link](preview.png)
 
+## Screenshots
+
 <table>
-<tr><th>Network panel</th><th>IP settings</th></tr>
-<tr><td><img src="docs/wifi.png" alt="Network panel with demo data"></td><td><img src="docs/ip-manual.png" alt="IP settings with a manual address, demo data"></td></tr>
+<tr><th>Network panel</th><th>All wired links</th></tr>
+<tr><td><img src="docs/wifi.png" alt="Network panel: Wi-Fi state, ping, throughput, band, DNS provider and Wi-Fi list"></td><td><img src="docs/wired.png" alt="Wired links with a Thunderbolt link, an Ethernet link and an unplugged port"></td></tr>
+<tr><th>Renaming a link</th><th>IP settings: fixed address</th></tr>
+<tr><td><img src="docs/wired-rename.png" alt="Renaming the Thunderbolt link in place"></td><td><img src="docs/ip-manual.png" alt="IP settings with a manual address filled from the current subnet"></td></tr>
+<tr><th>IP settings: DHCP</th><th></th></tr>
+<tr><td><img src="docs/ip-dhcp.png" alt="IP settings in DHCP mode"></td><td></td></tr>
 </table>
 
-Screenshots render the real QML with made-up network names and
-documentation-range addresses.
+The screenshots are the real QML rendered offscreen in Omarchy's Catppuccin
+theme, with made-up network names and documentation-range addresses.
 
 ## What it adds to the stock widget
 
@@ -136,8 +142,9 @@ To regenerate the screenshots:
 python3 tools/render-previews.py
 ```
 
-It runs the real `Panel.qml` offscreen with made-up data. It never captures
-your screen, reads NetworkManager or contacts ipify.org.
+It runs the real `Panel.qml` offscreen with made-up data, in a stock Omarchy
+theme (`catppuccin` by default; pass another theme name to change it). It
+never captures your screen, reads NetworkManager or contacts ipify.org.
 
 ## Keeping up with the stock widget
 

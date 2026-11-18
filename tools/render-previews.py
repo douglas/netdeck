@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 """Render the actual plugin QML with synthetic data in an offscreen window."""
-import atexit, json, os, shutil, subprocess, tempfile
+import atexit, json, os, shutil, subprocess, sys, tempfile, tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SHELL = Path(os.environ.get("OMARCHY_PATH", "/usr/share/omarchy")) / "shell"
 work = Path(tempfile.mkdtemp(prefix="network-settings-preview-"))
 atexit.register(shutil.rmtree, work, ignore_errors=True)
+
+# Render in a stock Omarchy theme (default catppuccin; pass another name to
+# change it), never the user's own. The shell reads the theme from
+# $HOME/.local/state/omarchy/current/theme, so point HOME at a throwaway copy.
+THEME = sys.argv[1] if len(sys.argv) > 1 else "catppuccin"
+theme_src = SHELL.parent / "themes" / THEME
+home = work / "home"
+shutil.copytree(theme_src, home / ".local/state/omarchy/current/theme")
+colors = tomllib.loads((theme_src / "colors.toml").read_text())
 for name in ["Ui", "Commons", "services"]:
     shutil.copytree(SHELL / name, work / name)
 shutil.copytree(ROOT, work / "Plugin", ignore=shutil.ignore_patterns(".git", ".github", "docs", "tools", "test"))
@@ -31,13 +40,13 @@ FloatingWindow {
  implicitWidth: contentWidth + 40
  implicitHeight: contentHeight + 40
  visible: open
- color: Color.background
+ color: "THEME_BG"
  Rectangle {
    id: frame
    width: root.contentWidth + 40
    height: root.contentHeight + 40
-   color: Color.background
-   border.color: Color.foreground
+   color: "THEME_BG"
+   border.color: "THEME_ACCENT"
    border.width: 1
    Item { id: body; anchors.fill: parent; anchors.margins: 20 }
  }
@@ -110,7 +119,11 @@ views = {
     "wired-connected": f'plugin.wiredView = true; plugin.wiredConnectedOnly = true; plugin.wiredLinks = {json.dumps(wired)};',
     "wired-rename": f'plugin.wiredView = true; plugin.wiredConnectedOnly = true; plugin.wiredLinks = {json.dumps(wired)}; plugin.startRename("demo-tb");',
 }
-adapter = (work / "Ui" / "KeyboardPanel.qml").read_text()
+def themed(text):
+    return (text.replace("THEME_BG", colors["background"]).replace("THEME_FG", colors["foreground"])
+            .replace("THEME_ACCENT", colors.get("accent", colors["foreground"]))
+            .replace("THEME_URGENT", colors.get("red", "#f38ba8")))
+adapter = themed((work / "Ui" / "KeyboardPanel.qml").read_text())
 (ROOT / "docs").mkdir(exist_ok=True)
 for view, selection in views.items():
     out = ROOT / "docs" / (view + ".png")
@@ -124,10 +137,10 @@ import "Plugin" as Plugin
 ShellRoot {
  QtObject {
   id: fakeBar
-  property color foreground: Color.foreground
-  property color barForeground: Color.foreground
-  property color background: Color.background
-  property color urgent: Color.urgent
+  property color foreground: "THEME_FG"
+  property color barForeground: "THEME_FG"
+  property color background: "THEME_BG"
+  property color urgent: "THEME_URGENT"
   property string fontFamily: Style.font.family
   property bool vertical: false
   property int barSize: 32
@@ -160,11 +173,13 @@ ShellRoot {
   }
  }
 }
-""".replace("INFO", json.dumps(info)).replace("NETWORKS", json.dumps(networks)).replace("SELECTION", selection))
+""".replace("THEME_FG", colors["foreground"]).replace("THEME_BG", colors["background"])
+     .replace("THEME_URGENT", colors.get("red", "#f38ba8")).replace("INFO", json.dumps(info)).replace("NETWORKS", json.dumps(networks)).replace("SELECTION", selection))
     runtime = work / "runtime"
     runtime.mkdir(mode=0o700, exist_ok=True)
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QPA_PLATFORMTHEME="basic",
-               QT_QUICK_BACKEND="software", QT_SCALE_FACTOR="1", XDG_RUNTIME_DIR=str(runtime))
+               QT_QUICK_BACKEND="software", QT_SCALE_FACTOR="1", XDG_RUNTIME_DIR=str(runtime),
+               HOME=str(home), XDG_STATE_HOME=str(home / ".local/state"))
     env.pop("DISPLAY", None)
     env.pop("WAYLAND_DISPLAY", None)
     result = subprocess.run(["quickshell", "-p", str(work), "--no-color"], env=env,
