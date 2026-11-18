@@ -47,6 +47,8 @@ speed, MTU and MAC. It only reads; *Edit IP settings ›* opens that link's
 profile in the IP settings screen. The copy button beside an address copies
 it; MAC, gateway and DNS values copy on click, like the main screen's.
 The *Connected only* switch in the header hides links with no cable or peer.
+The pencil beside a link's name renames its NetworkManager profile; Enter
+saves, Esc cancels. Only `connection.id` changes, so the link stays up.
 
 ## Install
 

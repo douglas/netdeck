@@ -69,6 +69,25 @@ def wired_links():
         links.append(link)
     return {'links': links}
 
+def rename(uuid, name):
+    """Rename a Wi-Fi or Ethernet profile. Takes effect at once, no reconnect."""
+    previous = read_profile(uuid)
+    if previous['type'] not in ('802-3-ethernet', '802-11-wireless'):
+        raise ValueError('Select a Wi-Fi or Ethernet connection')
+    name = name.strip()
+    if not name:
+        raise ValueError('Enter a name')
+    if len(name) > 64 or any(ord(c) < 32 or ord(c) == 127 for c in name):
+        raise ValueError('Use up to 64 characters, with no control characters')
+    if name == previous['name']:
+        return {'message': 'The name is unchanged.'}
+    for other in nm('-g', 'UUID,NAME', 'connection', 'show').splitlines():
+        other_uuid, _, other_name = other.partition(':')
+        if other_name == name and other_uuid != uuid:
+            raise ValueError('Another connection is already called ' + name)
+    nm('connection', 'modify', 'uuid', uuid, 'connection.id', name)
+    return {'message': 'Renamed to ' + name + '.'}
+
 def current_static(uuid):
     profile = read_profile(uuid)
     if profile['type'] not in ('802-3-ethernet', '802-11-wireless'):
@@ -112,6 +131,8 @@ def main():
         return {'profiles': profiles, 'selected': read_profile(selected) if selected else None}
     if action == 'read':
         return read_profile(sys.argv[2])
+    if action == 'rename':
+        return rename(sys.argv[2], sys.argv[3])
     if action == 'wired':
         return wired_links()
     if action == 'current':

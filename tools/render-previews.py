@@ -62,6 +62,7 @@ for old, new in [
     ('publicIpProc.running = true', 'return'),
     ('ipProc.running = true', 'return'),
     ('wiredProc.running = true', 'return'),
+    ('renameProc.running = true', 'return'),
     ('Networking.devices ? Networking.devices.values : []', '[]'),
     ('wifiNetworks = Model.sortWifiRows(nets)', 'return'),
     ('if (wiredDevice && wiredDevice.connected) return "ethernet"', 'return "wifi"'),
@@ -106,6 +107,7 @@ views = {
                  'plugin.publicIp = "203.0.113.42";',
     "wired": f'plugin.wiredView = true; plugin.wiredLinks = {json.dumps(wired)};',
     "wired-connected": f'plugin.wiredView = true; plugin.wiredConnectedOnly = true; plugin.wiredLinks = {json.dumps(wired)};',
+    "wired-rename": f'plugin.wiredView = true; plugin.wiredConnectedOnly = true; plugin.wiredLinks = {json.dumps(wired)}; plugin.startRename("demo-tb");',
 }
 adapter = (work / "Ui" / "KeyboardPanel.qml").read_text()
 (ROOT / "docs").mkdir(exist_ok=True)

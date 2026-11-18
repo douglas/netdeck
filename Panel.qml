@@ -154,6 +154,31 @@ Panel {
     wiredProc.command = ["python3", Qt.resolvedUrl("settings.py").toString().replace("file://", ""), "wired"]
     wiredProc.running = true
   }
+  // Inline rename on the Wired screen: one link at a time.
+  property string renamingUuid: ""
+  function startRename(uuid) {
+    wiredMessage = ""
+    renamingUuid = uuid
+  }
+  function submitRename(uuid, name) {
+    if (renameProc.running) return
+    renameProc.command = ["python3", Qt.resolvedUrl("settings.py").toString().replace("file://", ""), "rename", uuid, name]
+    renameProc.running = true
+  }
+  Process {
+    id: renameProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var data = JSON.parse(text)
+          if (data.error) { root.wiredMessage = data.error; return }
+          root.renamingUuid = ""
+          root.refreshWired()
+        } catch (e) { root.wiredMessage = "Could not rename the connection." }
+      }
+    }
+  }
+
   function formatLinkSpeed(mbps) {
     var n = parseInt(mbps, 10)
     if (!n) return ""
@@ -1246,13 +1271,13 @@ Panel {
       anchors.right: parent.right
       anchors.top: parent.top
       spacing: Style.space(12)
-      Keys.onEscapePressed: { root.wiredView = false; keyCatcher.forceActiveFocus() }
+      Keys.onEscapePressed: { root.wiredView = false; root.renamingUuid = ""; keyCatcher.forceActiveFocus() }
       RowLayout {
         width: parent.width
         Ui.Button {
           text: "‹  Network"
           focusable: true
-          onClicked: { root.wiredView = false; keyCatcher.forceActiveFocus() }
+          onClicked: { root.wiredView = false; root.renamingUuid = ""; keyCatcher.forceActiveFocus() }
         }
         Item { Layout.fillWidth: true }
         Ui.Button {
@@ -1311,6 +1336,7 @@ Panel {
           id: link
           required property var modelData
           required property int index
+          readonly property bool renaming: root.renamingUuid !== "" && root.renamingUuid === modelData.uuid
           width: wiredForm.width
           spacing: Style.space(12)
 
@@ -1357,6 +1383,51 @@ Panel {
                 elide: Text.ElideRight
               }
             }
+            Button {
+              visible: link.modelData.uuid !== "" && !link.renaming
+              iconText: "󰏫"
+              tooltipText: "Rename connection"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              iconSize: Style.font.subtitle * 1.5
+              horizontalPadding: Style.space(5)
+              verticalPadding: Style.space(2)
+              Layout.alignment: Qt.AlignVCenter
+              onClicked: root.startRename(link.modelData.uuid)
+            }
+          }
+
+          // Rename editor: Enter saves, Esc cancels.
+          RowLayout {
+            visible: link.renaming
+            width: parent.width
+            spacing: Style.space(8)
+            Ui.TextField {
+              id: renameField
+              Layout.fillWidth: true
+              enabled: !renameProc.running
+              placeholderText: "Connection name"
+              onAccepted: root.submitRename(link.modelData.uuid, text)
+              Keys.onEscapePressed: root.renamingUuid = ""
+            }
+            Ui.Button {
+              text: renameProc.running ? "Saving…" : "Save"
+              focusable: true
+              bordered: true
+              enabled: !renameProc.running && renameField.text.trim() !== ""
+              onClicked: root.submitRename(link.modelData.uuid, renameField.text)
+            }
+            Ui.Button {
+              text: "Cancel"
+              focusable: true
+              enabled: !renameProc.running
+              onClicked: root.renamingUuid = ""
+            }
+          }
+          onRenamingChanged: if (renaming) {
+            renameField.text = modelData.profile
+            renameField.selectAll()
+            renameField.forceActiveFocus()
           }
 
           // The address gets its own row so the copy button sits beside it.

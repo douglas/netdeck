@@ -207,6 +207,57 @@ class WiredTests(unittest.TestCase):
         self.assertFalse(any('modify' in c for c in fake.calls))
 
 
+class RenameTests(unittest.TestCase):
+    def rename(self, name, kind='802-3-ethernet', others='u1:old-name\nu2:taken\n'):
+        fake = FakeNmcli({
+            '-g connection.id,connection.type': 'old-name\n%s\nmanual\n\n\n\n' % kind,
+            '-g UUID,NAME connection show': others,
+        })
+        with mock.patch.object(settings.subprocess, 'run', fake):
+            with mock.patch.object(sys, 'argv', ['settings.py', 'rename', 'u1', name]):
+                try:
+                    return settings.main(), fake
+                except ValueError as e:
+                    return {'error': str(e)}, fake
+
+    def modify(self, fake):
+        return [c for c in fake.calls if 'modify' in c]
+
+    def test_renames_with_connection_id_only(self):
+        result, fake = self.rename('  thunderbolt-neo  ')
+        self.assertNotIn('error', result)
+        (call,) = self.modify(fake)
+        self.assertEqual(call[call.index('uuid') + 1], 'u1')
+        self.assertEqual(call[call.index('connection.id') + 1], 'thunderbolt-neo')
+        self.assertNotIn('ipv4.method', call)
+
+    def test_rejects_an_empty_name(self):
+        result, fake = self.rename('   ')
+        self.assertIn('error', result)
+        self.assertEqual(self.modify(fake), [])
+
+    def test_rejects_control_characters_and_long_names(self):
+        for name in ('bad\nname', 'x' * 65):
+            result, fake = self.rename(name)
+            self.assertIn('error', result)
+            self.assertEqual(self.modify(fake), [])
+
+    def test_rejects_a_name_another_connection_has(self):
+        result, fake = self.rename('taken')
+        self.assertIn('already', result['error'])
+        self.assertEqual(self.modify(fake), [])
+
+    def test_unchanged_name_is_a_no_op(self):
+        result, fake = self.rename('old-name')
+        self.assertNotIn('error', result)
+        self.assertEqual(self.modify(fake), [])
+
+    def test_rejects_a_non_network_profile(self):
+        result, fake = self.rename('new', kind='vpn')
+        self.assertIn('error', result)
+        self.assertEqual(self.modify(fake), [])
+
+
 class PublicIpTests(unittest.TestCase):
     def test_public_ip_validates_the_address(self):
         class FakeResponse:
