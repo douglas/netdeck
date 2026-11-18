@@ -110,7 +110,7 @@ def current_static(uuid):
 
 def public_ip():
     request = urllib.request.Request('https://api.ipify.org?format=json',
-                                     headers={'User-Agent': 'Omarchy-Network-Settings/0.2.0'})
+                                     headers={'User-Agent': 'Netdeck/1.0.0'})
     opener = urllib.request.build_opener(NoRedirectHandler)
     with opener.open(request, timeout=8) as response:
         data = json.loads(response.read(1024))

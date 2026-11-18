@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
+- Released as Netdeck (`io.github.douglas.netdeck`), from Rohi Rikman's
+  `rohi.network`. The *Connected only* state moves to `netdeck.json`.
 - Wired links screen (`e`, or *Wired links ›*): every Ethernet device,
   Thunderbolt networking included, with its state, IPv4 address and mode,
   gateway, DNS, whether it can be the default route, link speed, MTU and MAC.

@@ -139,7 +139,7 @@ Panel {
   property bool wiredView: false
   property var wiredLinks: []
   // Hide links with no cable or peer, so only the live ones show. Kept in
-  // $XDG_STATE_HOME/omarchy/rohi.network.json so it survives a shell restart.
+  // $XDG_STATE_HOME/omarchy/netdeck.json so it survives a shell restart.
   property bool wiredConnectedOnly: false
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy"
   function setWiredConnectedOnly(on) {
@@ -149,7 +149,7 @@ Panel {
   Process {
     id: stateDirProc
     command: ["mkdir", "-p", root.stateDir]
-    onExited: stateFile.path = root.stateDir + "/rohi.network.json"
+    onExited: stateFile.path = root.stateDir + "/netdeck.json"
     Component.onCompleted: running = true
   }
   FileView {

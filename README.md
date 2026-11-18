@@ -1,103 +1,118 @@
-# rohi.network
+# Netdeck
 
-A clone of Omarchy's `omarchy.network` bar widget with two additions: a
-public-IPv4 lookup and an in-panel IP settings editor.
+Every network link on your machine in one Omarchy bar panel: Wi-Fi, Ethernet
+and Thunderbolt networking. It replaces the stock `omarchy.network` widget and
+keeps everything it does, then adds a wired links view, a public IPv4 lookup
+and an IP settings editor.
 
-![IP settings with a manual address filled from the current connection](preview.png)
+Built for desks where machines talk over direct cables, such as two computers
+joined by a Thunderbolt cable, while still working as a normal laptop network
+widget.
+
+![Wired links with a Thunderbolt link and an Ethernet link](preview.png)
 
 <table>
-<tr><th>Network panel</th><th>Automatic (DHCP)</th></tr>
-<tr><td><img src="docs/wifi.png" alt="Network panel with demo data"></td><td><img src="docs/ip-dhcp.png" alt="IP settings in DHCP mode with demo data"></td></tr>
-<tr><th colspan="2">Wired links</th></tr>
-<tr><td colspan="2"><img src="docs/wired.png" alt="Wired links with demo Thunderbolt and Ethernet links"></td></tr>
+<tr><th>Network panel</th><th>IP settings</th></tr>
+<tr><td><img src="docs/wifi.png" alt="Network panel with demo data"></td><td><img src="docs/ip-manual.png" alt="IP settings with a manual address, demo data"></td></tr>
 </table>
 
-Screenshots render the actual QML interface with synthetic network names and
+Screenshots render the real QML with made-up network names and
 documentation-range addresses.
+
+## What it adds to the stock widget
+
+**Wired links** (`e`, or *Wired links ›*): every Ethernet device, Thunderbolt
+networking included. For each one:
+
+- name and link speed, and whether it is Ethernet or Thunderbolt;
+- state, IPv4 address with a copy button, and DHCP or static;
+- gateway, DNS, MTU, MAC (click a value to copy it);
+- whether it can take the default route. A direct cable between two machines
+  should say *Never*, so your internet traffic stays on your normal network;
+- a pencil to rename the connection in place (Enter saves, Esc cancels). Only
+  the NetworkManager profile name changes, so the link stays up;
+- *Edit IP settings ›*, which opens that link in the IP settings screen.
+
+The *Connected only* switch hides ports with no cable or peer. It is
+remembered across shell restarts in `~/.local/state/omarchy/netdeck.json`.
+
+**IP settings** (`s`, or *IP settings ›*): pick any saved Wi-Fi or Ethernet
+profile and switch it between DHCP and a fixed IPv4 address, gateway and DNS.
+*Use current IP as fixed* fills the form from the address you have now.
+
+**Public IPv4**: looks up your public address through
+[ipify.org](https://api.ipify.org), only when you click the button. The button
+names the service, because the lookup is a request to a third party.
 
 ## Requirements
 
-- The Quickshell-based Omarchy shell (Quattro)
-- NetworkManager with `nmcli` on `PATH` — used by `settings.py` and by the
-  stock widget's own Wi-Fi list
-- Python 3 (standard library only; no packages to install)
-- `bash`, `awk`, and GNU coreutils
-- `iw` and `ip`, as the stock widget already uses them for link details
+- Omarchy with the Quickshell shell (Quattro)
+- NetworkManager, with `nmcli` on `PATH`
+- Python 3 (standard library only)
+- `bash`, `ip` and `iw`, which the stock widget already uses
 
-No background service, no daemon, and no network access except the public-IP
-lookup, which only runs when you press its button.
-
-## What this adds over the stock widget
-
-**Public IPv4** — a row that looks the address up through
-[ipify.org](https://api.ipify.org) on demand. The button says which service it
-contacts, because a public-IP lookup is a request to a third party and the user
-should know that before pressing it. The lookup never runs on its own; it waits
-for the click.
-
-**IP settings** — a screen reached with `s`, or the *IP settings ›* button. It
-lists the machine's saved Wi-Fi and Ethernet profiles and lets you switch a
-profile between DHCP and a fixed address, with an *Use current IP as fixed*
-shortcut that pre-fills from the subnet you are already on.
-
-**Wired links** — a screen reached with `e`, or the *Wired links ›* button.
-It shows every Ethernet device, Thunderbolt networking included: state, IPv4
-address and mode, gateway, DNS, whether it can take the default route, link
-speed, MTU and MAC. It only reads; *Edit IP settings ›* opens that link's
-profile in the IP settings screen. The copy button beside an address copies
-it; MAC, gateway and DNS values copy on click, like the main screen's.
-The *Connected only* switch in the header hides links with no cable or peer,
-and is remembered across shell restarts in
-`~/.local/state/omarchy/rohi.network.json`.
-The pencil beside a link's name renames its NetworkManager profile; Enter
-saves, Esc cancels. Only `connection.id` changes, so the link stays up.
+No background service and no network access except the public IPv4 lookup.
 
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/RohiRIK/rohi.network --enable
+omarchy plugin add https://github.com/douglas/netdeck --enable
 ```
 
-The plugin id is `rohi.network`, so it replaces the stock `omarchy.network`
-widget rather than sitting beside it. To go back:
+Netdeck is a replacement for `omarchy.network` (`clonedFrom` in
+`manifest.json`), so it takes the stock widget's place in the bar and answers
+its keybindings.
+
+## Remove
 
 ```bash
-omarchy plugin remove rohi.network --yes
+omarchy plugin remove io.github.douglas.netdeck --yes
 ```
 
-Because `manifest.json` records `clonedFrom: omarchy.network`, removing it
-while it is enabled re-enables the stock widget automatically. The old
-directory is kept as a timestamped backup rather than deleted.
-
-If you removed it while it was disabled, the stock widget does not come back
-on its own — enable it:
+Removing it while it is enabled turns the stock widget back on. If you removed
+it while it was disabled, turn the stock widget on yourself:
 
 ```bash
 omarchy plugin enable omarchy.network
+```
+
+Netdeck keeps one small state file. Delete it too if you like:
+
+```bash
+rm -f ~/.local/state/omarchy/netdeck.json
 ```
 
 ## Keys
 
 | Key | Action |
 |---|---|
+| `e` | Open wired links |
 | `s` | Open IP settings |
 | `r` | Refresh |
-| `w` | Toggle the network on or off |
-| `Esc` | Leave IP settings, or close the panel |
+| `w` | Turn Wi-Fi on or off |
+| `Esc` | Go back, or close the panel |
 
 ## How it works
 
-`Panel.qml` is the stock widget plus two additions. Live link state comes from
-the `Quickshell.Networking` types the stock widget already uses.
+`Panel.qml` is the stock widget plus the screens above. Live Wi-Fi state comes
+from the `Quickshell.Networking` types the stock widget already uses.
 
-Anything that needs `nmcli` goes through `settings.py`, which takes one
-argument — `public`, `list`, `read`, `current` or `save` — and prints one JSON
-object on stdout. Errors come back as `{"error": "..."}` on stdout with a
-non-zero exit, so the panel has a single parse path.
+Everything that talks to NetworkManager goes through `settings.py`. It takes
+one action (`public`, `list`, `read`, `current`, `save`, `wired` or `rename`),
+prints one JSON object, and reports errors as `{"error": "..."}`. It calls
+`nmcli` with argument lists, never through a shell.
 
-The Wi-Fi passphrase never reaches `settings.py`. The stock widget's
-`enterpriseConnectScript` passes it on **stdin** into `nmcli connection edit`,
-because argv is world-readable through `/proc`.
+What it can change, and the checks before it does:
+
+- `save` sets only the IPv4 method, addresses, gateway and DNS of a Wi-Fi or
+  Ethernet profile. It refuses IPv6, an address without a prefix, and any other
+  profile type. Going back to DHCP clears the static address and gateway.
+- `rename` changes only the profile name. It refuses empty names, control
+  characters, names over 64 characters, and a name another connection uses.
+- `wired` only reads.
+
+Wi-Fi passphrases never reach `settings.py`: the stock code passes them on
+stdin to `nmcli`, because command-line arguments are visible in `/proc`.
 
 ## Tests
 
@@ -105,14 +120,15 @@ because argv is world-readable through `/proc`.
 bash test/run
 ```
 
-84 checks over four files:
-
 | File | Covers |
 |---|---|
-| `test/model.test.js` | The 25 pure helpers in `Model.js` — band labels, packet loss, latency formatting, Wi-Fi row sorting, credential prompts, failure mapping |
-| `test/settings.test.py` | Every validation branch in the save path, against a fake `nmcli`, so no real connection is touched |
-| `test/manifest.test.py` | Manifest schema, entry point, and that the files `Panel.qml` shells out to exist |
-| `test/integration.test.js` | Real `nmcli` and `omarchy-network-band` output on this machine |
+| `test/model.test.js` | The pure helpers in `Model.js` |
+| `test/settings.test.py` | Every `settings.py` action against a fake `nmcli`, so no real connection changes |
+| `test/manifest.test.py` | The manifest, its entry point, and `omarchy plugin validate` |
+| `test/integration.test.js` | Real `nmcli` and `omarchy-network-band` output on this machine (read-only) |
+
+GitHub Actions runs the first three on every push and pull request. The
+integration test needs NetworkManager and Omarchy, so it runs locally.
 
 To regenerate the screenshots:
 
@@ -120,55 +136,21 @@ To regenerate the screenshots:
 python3 tools/render-previews.py
 ```
 
-It needs the installed Omarchy shell and runs the real `Panel.qml` in an
-isolated offscreen renderer with synthetic data. It never captures your
-desktop, reads NetworkManager, or contacts ipify.org.
+It runs the real `Panel.qml` offscreen with made-up data. It never captures
+your screen, reads NetworkManager or contacts ipify.org.
 
-## CI, and why the runner is narrow
+## Keeping up with the stock widget
 
-`test/integration.test.js` needs NetworkManager and `omarchy-network-band`,
-which exist only on a real desktop, so it runs on a self-hosted runner
-registered against this repository.
+The stock widget lives in `/usr/share/omarchy/shell/plugins/panels/network/`.
+`Model.js` here is identical to stock, and `Panel.qml` carries Netdeck's
+additions on top, so port stock fixes across rather than re-cloning.
 
-That runner is Rohi's actual desktop: it holds SSH keys, a logged-in
-browser and the credential-vault plugin. So the grant is kept as narrow as
-it can be while still working:
+## Credits
 
-- **Ephemeral.** The runner accepts exactly one job, then deregisters
-  itself. A standing listener would accept a job from any workflow in the
-  repository at any time.
-- **One label.** It is addressed as `rohi-desktop`, so no other
-  repository's workflow can target it.
-- **Push only.** `test.yml` triggers on pushes to `main` and is the only
-  workflow containing a self-hosted job. Pull requests — including
-  anyone's forks — run in `untrusted.yml`, on `ubuntu-latest` only, with
-  `permissions: contents: read`. It never uses `pull_request_target`.
-
-Changes arriving by pull request are therefore reviewed and landed before
-anything touches the desktop. The equivalent checks pass locally in
-`bash test/run`, so the local run is the fast path and CI is the record.
-
-## Relationship to `omarchy.network`
-
-This is a clone. The stock widget lives in
-`/usr/share/omarchy/shell/plugins/panels/network/` and is owned by the omarchy
-package, so it must not be edited in place — an `omarchy update` overwrites it.
-`manifest.json` records `clonedFrom: omarchy.network` so the origin stays
-discoverable.
-
-When stock `omarchy.network` gains a fix, port it here rather than re-cloning:
-`Model.js` here is byte-identical to stock, and `Panel.qml` carries the
-additions on top of it.
-
-## Security notes
-
-- The public-IP lookup contacts a third party and only runs on an explicit click.
-- `save` validates every address, gateway and DNS entry before `nmcli` runs, and
-  refuses IPv6, a missing prefix, and a non-network profile.
-- Switching back to `auto` clears the static address and gateway, so a stale
-  address cannot block a later DHCP renewal.
-- Passphrases travel on stdin, never argv.
+Netdeck began as [rohi.network](https://github.com/RohiRIK/rohi.network) by
+Rohi Rikman, which added the public IPv4 lookup and the IP settings editor to
+Omarchy's [`omarchy.network`](https://github.com/basecamp/omarchy) widget.
 
 ## License
 
-MIT, matching the stock widget.
+MIT. See [LICENSE](LICENSE).

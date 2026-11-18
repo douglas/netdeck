@@ -28,7 +28,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(self.m['schemaVersion'], 1)
 
     def test_id_matches_the_installed_directory(self):
-        self.assertEqual(self.m['id'], 'rohi.network')
+        self.assertEqual(self.m['id'], 'io.github.douglas.netdeck')
 
     def test_declares_a_bar_widget(self):
         self.assertIn('bar-widget', self.m['kinds'])

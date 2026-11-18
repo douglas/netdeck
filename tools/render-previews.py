@@ -172,5 +172,5 @@ ShellRoot {
     if result.returncode or not out.exists():
         raise SystemExit(result.stdout + result.stderr)
     print(out)
-shutil.copy2(ROOT / "docs" / "ip-manual.png", ROOT / "preview.png")
+shutil.copy2(ROOT / "docs" / "wired-connected.png", ROOT / "preview.png")
 shutil.rmtree(work)

@@ -1,17 +1,13 @@
 name: test
 
+# Hosted runners only. The integration test needs NetworkManager and the
+# Omarchy shell, which a hosted runner lacks, so it runs locally in
+# `bash test/run` instead.
 on:
   push:
     branches: [main]
-
-# No `pull_request` trigger here. The integration job below runs on a
-# self-hosted runner, which is Rohi's actual desktop: it holds SSH keys, a
-# logged-in browser and the credential-vault plugin. A `pull_request` trigger
-# would let anyone who forks this public repo execute code there. Changes
-# arriving by PR are reviewed and landed first; only `main` is trusted.
-#
-# Untrusted PRs are covered by `untrusted.yml`, which has no self-hosted
-# runner in it and only reads the checkout.
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -29,25 +25,8 @@ jobs:
           python-version: '3.11'
       - name: Model.js unit tests
         run: node test/model.test.js
-      - name: settings.py validation tests
+      - name: settings.py tests
         run: python3 test/settings.test.py
       - name: Manifest contract
-        # The schema checks always run. The Omarchy validator is skipped when
-        # the runner does not have Omarchy installed.
-        run: python3 test/manifest.test.py
-
-  # NetworkManager and omarchy-network-band only exist on a real desktop, so
-  # these run on self-hosted hardware. This job reads the host's network state
-  # and never modifies a connection. The runner label is specific so it can be
-  # withheld from any other repository's workflow.
-  integration:
-    runs-on: [self-hosted, linux, rohi-desktop]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Integration against NetworkManager
-        run: node test/integration.test.js
-      - name: Manifest and shell contract
-        run: python3 test/manifest.test.py
+        # The Omarchy validator is skipped: hosted runners have no Omarchy.
+        run: python3 test/manifest.test.py -k 'not omarchy_plugin_validate'

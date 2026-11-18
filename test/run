@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Aggregated test runner for the rohi.network plugin.
+# Aggregated test runner for the Netdeck plugin.
 # Runs unit, manifest and integration tests, continuing past failures so
 # every file gets its runtime coverage.
 
