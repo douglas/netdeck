@@ -170,30 +170,6 @@ Panel {
     }
   }
 
-  component LinkField: RowLayout {
-    property string label
-    property string value
-    width: parent.width
-    spacing: Style.space(8)
-    visible: value !== ""
-    Text {
-      text: parent.label
-      color: root.bar.foreground
-      opacity: 0.7
-      font.family: root.bar.fontFamily
-      font.pixelSize: Style.font.caption
-    }
-    Text {
-      Layout.fillWidth: true
-      horizontalAlignment: Text.AlignRight
-      text: parent.value
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: root.bar.foreground
-      font.family: root.bar.fontFamily
-      font.pixelSize: Style.font.caption
-    }
-  }
 
   // Live connection details from `ip` / /sys / iw.
   property var info: ({})  // { iface, type, ip, prefix, gateway, speed, duplex, ssid, signal, freq, bitrate, rx_bytes, tx_bytes, router_ping_ms, internet_ping_ms }
@@ -618,6 +594,19 @@ Panel {
   function copyToClipboard(value) {
     if (!value || !root.bar) return
     Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(value) + " | wl-copy"])
+  }
+
+  // The value just copied, so its copy button can show a check for a moment.
+  property string copiedValue: ""
+  function copyWithFeedback(value) {
+    copyToClipboard(value)
+    copiedValue = value
+    copiedReset.restart()
+  }
+  Timer {
+    id: copiedReset
+    interval: 1500
+    onTriggered: root.copiedValue = ""
   }
 
   readonly property string icon: Model.connectionIcon(kind, signalStrength)
@@ -1271,78 +1260,142 @@ Panel {
           onClicked: root.refreshWired()
         }
       }
-      Text {
-        text: "Wired links"
-        color: root.bar.foreground
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
+      PanelSectionHeader {
+        text: "WIRED LINKS"
+        foreground: root.bar.foreground
+        fontFamily: root.bar.fontFamily
       }
-      Text {
+      InfoValue {
         width: parent.width
         visible: root.wiredMessage !== ""
         text: root.wiredMessage
-        textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        color: root.bar.foreground
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.caption
       }
       Repeater {
         model: root.wiredLinks
         delegate: Column {
+          id: link
           required property var modelData
+          required property int index
           width: wiredForm.width
-          spacing: Style.space(4)
-          Rectangle {
-            width: parent.width
-            height: 1
-            color: root.bar.foreground
-            opacity: 0.2
+          spacing: Style.space(12)
+
+          PanelSeparator {
+            visible: link.index > 0
+            foreground: root.bar.foreground
           }
+
+          // Same hero as the main screen: icon, name (speed), state caption.
+          RowLayout {
+            width: parent.width
+            spacing: Style.space(14)
+            Text {
+              textFormat: Text.PlainText
+              text: Model.connectionIcon("ethernet", 0)
+              color: root.bar.foreground
+              opacity: link.modelData.connected ? 1.0 : 0.5
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.display
+            }
+            Column {
+              Layout.fillWidth: true
+              spacing: Style.space(2)
+              Text {
+                width: parent.width
+                textFormat: Text.PlainText
+                readonly property string speed: root.formatLinkSpeed(link.modelData.speed)
+                text: (link.modelData.profile || link.modelData.device) + (speed ? " (" + speed + ")" : "")
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.title
+                font.bold: true
+                elide: Text.ElideRight
+              }
+              Text {
+                width: parent.width
+                textFormat: Text.PlainText
+                text: (link.modelData.thunderbolt ? "THUNDERBOLT · " : "ETHERNET · ") + link.modelData.state.toUpperCase()
+                color: Qt.darker(root.bar.foreground, 1.4)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                font.letterSpacing: 1.2
+                elide: Text.ElideRight
+              }
+            }
+          }
+
+          // The address gets its own row so the copy button sits beside it.
           RowLayout {
             width: parent.width
             spacing: Style.space(8)
-            Text {
-              text: Model.connectionIcon("ethernet", 0)
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.body
-            }
-            Text {
-              Layout.fillWidth: true
-              text: (modelData.profile || modelData.device) + (modelData.thunderbolt ? "  · Thunderbolt" : "")
-              textFormat: Text.PlainText
+            InfoLabel { text: "IP Address" }
+            DetailValue {
+              text: link.modelData.addresses || "--"
+              copyable: !!link.modelData.addresses
+              tooltipText: "Copy IP"
               elide: Text.ElideRight
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              font.bold: true
             }
-            Text {
-              text: modelData.state
-              textFormat: Text.PlainText
-              color: modelData.connected ? Color.accent : root.bar.foreground
-              opacity: modelData.connected ? 1 : 0.7
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
+            Button {
+              visible: !!link.modelData.addresses
+              iconText: root.copiedValue === link.modelData.addresses ? "󰄬" : "󰆏"
+              tooltipText: root.copiedValue === link.modelData.addresses ? "Copied" : "Copy IP"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              iconSize: Style.font.body
+              horizontalPadding: Style.space(4)
+              verticalPadding: Style.space(1)
+              Layout.alignment: Qt.AlignVCenter
+              onClicked: root.copyWithFeedback(link.modelData.addresses)
             }
           }
-          LinkField { label: "Device"; value: modelData.device }
-          LinkField { label: "IPv4"; value: modelData.addresses }
-          LinkField { label: "Mode"; value: modelData.method === "manual" ? "Static" : modelData.method === "auto" ? "DHCP" : modelData.method }
-          LinkField { label: "Gateway"; value: modelData.gateway }
-          LinkField { label: "DNS"; value: modelData.dns }
-          LinkField { label: "Default route"; value: modelData.uuid ? (modelData.defaultRoute ? "yes" : "never") : "" }
-          LinkField { label: "Link speed"; value: root.formatLinkSpeed(modelData.speed) }
-          LinkField { label: "MTU"; value: modelData.mtu }
-          LinkField { label: "MAC"; value: modelData.mac }
+
+          GridLayout {
+            width: parent.width
+            columns: 4
+            columnSpacing: Style.space(20)
+            rowSpacing: Style.spacing.labelGap
+
+            InfoLabel { text: "Mode" }
+            DetailValue { text: link.modelData.method === "manual" ? "Static" : link.modelData.method === "auto" ? "DHCP" : (link.modelData.method || "--") }
+            InfoLabel { text: "Gateway" }
+            DetailValue {
+              text: link.modelData.gateway || "--"
+              copyable: !!link.modelData.gateway
+              tooltipText: "Copy gateway"
+            }
+
+            InfoLabel { text: "MTU" }
+            DetailValue { text: link.modelData.mtu || "--" }
+            InfoLabel { text: "Default Route" }
+            DetailValue { text: link.modelData.uuid ? (link.modelData.defaultRoute ? "Yes" : "Never") : "--" }
+
+            InfoLabel { text: "Device" }
+            DetailValue { text: link.modelData.device }
+            InfoLabel { text: "DNS" }
+            DetailValue {
+              text: link.modelData.dns || "--"
+              copyable: !!link.modelData.dns
+              tooltipText: "Copy DNS"
+              elide: Text.ElideRight
+            }
+
+            InfoLabel { text: "MAC" }
+            DetailValue {
+              Layout.columnSpan: 3
+              text: link.modelData.mac || "--"
+              copyable: !!link.modelData.mac
+              tooltipText: "Copy MAC"
+            }
+          }
+
           Ui.Button {
-            visible: modelData.uuid !== ""
+            visible: link.modelData.uuid !== ""
             text: "Edit IP settings  ›"
             focusable: true
-            fontSize: Style.font.caption
-            onClicked: root.openIpSettings(modelData.uuid)
+            bordered: true
+            width: parent.width
+            onClicked: root.openIpSettings(link.modelData.uuid)
           }
         }
       }

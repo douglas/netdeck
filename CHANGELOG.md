@@ -6,6 +6,8 @@
   Thunderbolt networking included, with its state, IPv4 address and mode,
   gateway, DNS, whether it can be the default route, link speed, MTU and MAC.
   Read-only; *Edit IP settings ›* opens that link's profile in IP settings.
+  Styled like the main screen (hero, detail grid, section header), with a
+  copy button beside each IP address.
 - README screenshots of the network panel and IP settings, rendered from the
   real QML with synthetic data by `tools/render-previews.py`.
 

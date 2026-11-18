@@ -8,6 +8,8 @@ public-IPv4 lookup and an in-panel IP settings editor.
 <table>
 <tr><th>Network panel</th><th>Automatic (DHCP)</th></tr>
 <tr><td><img src="docs/wifi.png" alt="Network panel with demo data"></td><td><img src="docs/ip-dhcp.png" alt="IP settings in DHCP mode with demo data"></td></tr>
+<tr><th colspan="2">Wired links</th></tr>
+<tr><td colspan="2"><img src="docs/wired.png" alt="Wired links with demo Thunderbolt and Ethernet links"></td></tr>
 </table>
 
 Screenshots render the actual QML interface with synthetic network names and
@@ -42,7 +44,8 @@ shortcut that pre-fills from the subnet you are already on.
 It shows every Ethernet device, Thunderbolt networking included: state, IPv4
 address and mode, gateway, DNS, whether it can take the default route, link
 speed, MTU and MAC. It only reads; *Edit IP settings ›* opens that link's
-profile in the IP settings screen.
+profile in the IP settings screen. The copy button beside an address copies
+it; MAC, gateway and DNS values copy on click, like the main screen's.
 
 ## Install
 

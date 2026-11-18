@@ -61,6 +61,7 @@ for old, new in [
     ('function refresh(scanWifi) {', 'function refresh(scanWifi) { return'),
     ('publicIpProc.running = true', 'return'),
     ('ipProc.running = true', 'return'),
+    ('wiredProc.running = true', 'return'),
     ('Networking.devices ? Networking.devices.values : []', '[]'),
     ('wifiNetworks = Model.sortWifiRows(nets)', 'return'),
     ('if (wiredDevice && wiredDevice.connected) return "ethernet"', 'return "wifi"'),
@@ -85,6 +86,14 @@ profiles = [dict(value="demo-home", label="Home Network"), dict(value="demo-wire
 auto = dict(uuid="demo-home", method="auto", addresses="", gateway="", dns="")
 manual = dict(uuid="demo-home", method="manual", addresses="192.168.1.50/24", gateway="192.168.1.1",
               dns="192.168.1.1,1.1.1.1")
+wired = [
+    dict(device="thunderbolt0", thunderbolt=True, state="connected", connected=True, mac="02:00:5E:10:00:01",
+         speed="40000", mtu="65520", addresses="10.0.0.1/24", gateway="", dns="", profile="thunderbolt-peer",
+         uuid="demo-tb", method="manual", defaultRoute=False),
+    dict(device="enp1s0", thunderbolt=False, state="connected", connected=True, mac="02:00:5E:10:00:02",
+         speed="5000", mtu="1500", addresses="192.168.1.60/24", gateway="192.168.1.1", dns="192.168.1.1",
+         profile="Wired connection 1", uuid="demo-wired", method="auto", defaultRoute=True),
+]
 
 views = {
     "wifi": "",
@@ -92,6 +101,7 @@ views = {
     "ip-manual": f'plugin.ipEditing = true; plugin.ipProfiles = {json.dumps(profiles)}; plugin.ipLoad({json.dumps(manual)});'
                  'plugin.ipMessage = "Filled from current subnet 192.168.1.0/24. Review, then save.";'
                  'plugin.publicIp = "203.0.113.42";',
+    "wired": f'plugin.wiredView = true; plugin.wiredLinks = {json.dumps(wired)};',
 }
 adapter = (work / "Ui" / "KeyboardPanel.qml").read_text()
 (ROOT / "docs").mkdir(exist_ok=True)
