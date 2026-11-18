@@ -138,8 +138,28 @@ Panel {
   // read-only, from `settings.py wired`.
   property bool wiredView: false
   property var wiredLinks: []
-  // Hide links with no cable or peer, so only the live ones show.
+  // Hide links with no cable or peer, so only the live ones show. Kept in
+  // $XDG_STATE_HOME/omarchy/rohi.network.json so it survives a shell restart.
   property bool wiredConnectedOnly: false
+  readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy"
+  function setWiredConnectedOnly(on) {
+    wiredConnectedOnly = on
+    stateFile.setText(JSON.stringify({ wiredConnectedOnly: on }) + "\n")
+  }
+  Process {
+    id: stateDirProc
+    command: ["mkdir", "-p", root.stateDir]
+    onExited: stateFile.path = root.stateDir + "/rohi.network.json"
+    Component.onCompleted: running = true
+  }
+  FileView {
+    id: stateFile
+    atomicWrites: true
+    printErrors: false
+    onLoaded: {
+      try { root.wiredConnectedOnly = JSON.parse(text()).wiredConnectedOnly === true } catch (e) {}
+    }
+  }
   readonly property var wiredShown: wiredConnectedOnly ? wiredLinks.filter(function(l) { return l.connected }) : wiredLinks
   property string wiredMessage: ""
   function openWired() {
@@ -1319,7 +1339,7 @@ Panel {
             anchors.verticalCenterOffset: Math.round(wiredFilterLabel.topPadding / 2)
             checked: root.wiredConnectedOnly
             foreground: root.bar.foreground
-            onToggled: root.wiredConnectedOnly = !root.wiredConnectedOnly
+            onToggled: root.setWiredConnectedOnly(!root.wiredConnectedOnly)
           }
         }
       }

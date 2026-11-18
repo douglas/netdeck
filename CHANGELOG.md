@@ -8,7 +8,8 @@
   Read-only; *Edit IP settings ›* opens that link's profile in IP settings.
   Styled like the main screen (hero, detail grid, section header), with a
   copy button beside each IP address.
-  A *Connected only* switch in its header hides links with no cable or peer.
+  A *Connected only* switch in its header hides links with no cable or peer;
+  it is remembered in `$XDG_STATE_HOME/omarchy/rohi.network.json`.
   The pencil beside a link's name renames its profile (`connection.id`), at
   once and without a reconnect; names other connections use are refused.
 - README screenshots of the network panel and IP settings, rendered from the

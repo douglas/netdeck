@@ -63,6 +63,7 @@ for old, new in [
     ('ipProc.running = true', 'return'),
     ('wiredProc.running = true', 'return'),
     ('renameProc.running = true', 'return'),
+    ('Component.onCompleted: running = true', 'Component.onCompleted: {}'),
     ('Networking.devices ? Networking.devices.values : []', '[]'),
     ('wifiNetworks = Model.sortWifiRows(nets)', 'return'),
     ('if (wiredDevice && wiredDevice.connected) return "ethernet"', 'return "wifi"'),
