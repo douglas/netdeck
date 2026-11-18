@@ -85,6 +85,15 @@ Panel {
   property string ipMethod: "auto"
   property var ipProfiles: []
   property string ipOperation: ""
+  // Opening IP settings from the Wired screen preselects that link's profile.
+  property string ipPendingUuid: ""
+  function openIpSettings(uuid) {
+    root.wiredView = false
+    root.ipEditing = true
+    root.cancelPasswordPrompt()
+    root.ipPendingUuid = uuid || ""
+    root.ipRequest("list", [])
+  }
   function ipRequest(operation, args) {
     if (ipProc.running) return
     ipOperation = operation
@@ -110,6 +119,11 @@ Panel {
             root.ipProfiles = data.profiles
             root.ipUuid = ""
             if (data.selected) root.ipLoad(data.selected)
+            if (root.ipPendingUuid) {
+              var pending = root.ipPendingUuid
+              root.ipPendingUuid = ""
+              Qt.callLater(function() { root.ipRequest("read", [pending]) })
+            }
             root.ipMessage = data.profiles.length ? "" : "Connect to Wi-Fi first, then return here."
           } else if (root.ipOperation === "read" || root.ipOperation === "current") {
             root.ipLoad(data)
@@ -117,6 +131,67 @@ Panel {
           } else root.ipMessage = data.message
         } catch (e) { root.ipMessage = "Could not read network settings." }
       }
+    }
+  }
+
+  // Wired screen: every Ethernet device (Thunderbolt networking included),
+  // read-only, from `settings.py wired`.
+  property bool wiredView: false
+  property var wiredLinks: []
+  property string wiredMessage: ""
+  function openWired() {
+    root.ipEditing = false
+    root.cancelPasswordPrompt()
+    root.wiredView = true
+    refreshWired()
+  }
+  function refreshWired() {
+    if (wiredProc.running) return
+    wiredMessage = ""
+    wiredProc.command = ["python3", Qt.resolvedUrl("settings.py").toString().replace("file://", ""), "wired"]
+    wiredProc.running = true
+  }
+  function formatLinkSpeed(mbps) {
+    var n = parseInt(mbps, 10)
+    if (!n) return ""
+    return n >= 1000 ? (n / 1000) + " Gb/s" : n + " Mb/s"
+  }
+  Process {
+    id: wiredProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var data = JSON.parse(text)
+          if (data.error) { root.wiredMessage = data.error; return }
+          root.wiredLinks = data.links
+          root.wiredMessage = data.links.length ? "" : "No Ethernet or Thunderbolt devices found."
+        } catch (e) { root.wiredMessage = "Could not read wired links." }
+      }
+    }
+  }
+
+  component LinkField: RowLayout {
+    property string label
+    property string value
+    width: parent.width
+    spacing: Style.space(8)
+    visible: value !== ""
+    Text {
+      text: parent.label
+      color: root.bar.foreground
+      opacity: 0.7
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+    Text {
+      Layout.fillWidth: true
+      horizontalAlignment: Text.AlignRight
+      text: parent.value
+      textFormat: Text.PlainText
+      elide: Text.ElideRight
+      color: root.bar.foreground
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.caption
     }
   }
 
@@ -309,7 +384,8 @@ Panel {
     function toggle() { root.toggle() }
     function toggleNetwork() { root.toggleNetwork() }
     function wifi() { root.ipEditing = false; root.open() }
-    function settings() { root.open(); root.ipEditing = true; root.ipRequest("list", []) }
+    function settings() { root.open(); root.openIpSettings("") }
+    function wired() { root.open(); root.openWired() }
     // Compat routes for configs that summon the centered cards through the
     // network target; both cards are their own plugins now.
     function showQr() { root.summonWifiQr(true) }
@@ -1077,7 +1153,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(root.ipEditing ? ipForm.implicitHeight : column.implicitHeight)
+    contentHeight: panel.fittedContentHeight(root.wiredView ? wiredForm.implicitHeight : root.ipEditing ? ipForm.implicitHeight : column.implicitHeight)
 
     // Catches all unhandled keys for keyboard navigation. AfterItem priority
     // lets the passphrase TextField (a child via focus chain) get its keys
@@ -1087,7 +1163,7 @@ Panel {
       anchors.fill: parent
       // Freeze the cursor model while the inline password prompt is open;
       // the TextField inside owns input until Esc/Enter/Cancel.
-      blocked: root.ipEditing || root.passwordSsid !== ""
+      blocked: root.ipEditing || root.wiredView || root.passwordSsid !== ""
 
       onMoveRequested: function(dx, dy) {
         if (!root.cursorActive) {
@@ -1165,10 +1241,112 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
-        if (t === "s" || t === "S") { root.ipEditing = true; root.ipRequest("list", []) }
+        if (t === "s" || t === "S") root.openIpSettings("")
+        else if (t === "e" || t === "E") root.openWired()
         else if (t === "r" || t === "R") root.refresh()
         else if (t === "w" || t === "W") root.toggleNetwork()
       }
+
+    Column {
+      id: wiredForm
+      visible: root.wiredView
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      spacing: Style.space(12)
+      Keys.onEscapePressed: { root.wiredView = false; keyCatcher.forceActiveFocus() }
+      RowLayout {
+        width: parent.width
+        Ui.Button {
+          text: "‹  Network"
+          focusable: true
+          onClicked: { root.wiredView = false; keyCatcher.forceActiveFocus() }
+        }
+        Item { Layout.fillWidth: true }
+        Ui.Button {
+          text: wiredProc.running ? "Loading…" : "Refresh"
+          focusable: true
+          enabled: !wiredProc.running
+          fontSize: Style.font.caption
+          onClicked: root.refreshWired()
+        }
+      }
+      Text {
+        text: "Wired links"
+        color: root.bar.foreground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+      Text {
+        width: parent.width
+        visible: root.wiredMessage !== ""
+        text: root.wiredMessage
+        textFormat: Text.PlainText
+        wrapMode: Text.Wrap
+        color: root.bar.foreground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+      Repeater {
+        model: root.wiredLinks
+        delegate: Column {
+          required property var modelData
+          width: wiredForm.width
+          spacing: Style.space(4)
+          Rectangle {
+            width: parent.width
+            height: 1
+            color: root.bar.foreground
+            opacity: 0.2
+          }
+          RowLayout {
+            width: parent.width
+            spacing: Style.space(8)
+            Text {
+              text: Model.connectionIcon("ethernet", 0)
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.body
+            }
+            Text {
+              Layout.fillWidth: true
+              text: (modelData.profile || modelData.device) + (modelData.thunderbolt ? "  · Thunderbolt" : "")
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+            }
+            Text {
+              text: modelData.state
+              textFormat: Text.PlainText
+              color: modelData.connected ? Color.accent : root.bar.foreground
+              opacity: modelData.connected ? 1 : 0.7
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+          LinkField { label: "Device"; value: modelData.device }
+          LinkField { label: "IPv4"; value: modelData.addresses }
+          LinkField { label: "Mode"; value: modelData.method === "manual" ? "Static" : modelData.method === "auto" ? "DHCP" : modelData.method }
+          LinkField { label: "Gateway"; value: modelData.gateway }
+          LinkField { label: "DNS"; value: modelData.dns }
+          LinkField { label: "Default route"; value: modelData.uuid ? (modelData.defaultRoute ? "yes" : "never") : "" }
+          LinkField { label: "Link speed"; value: root.formatLinkSpeed(modelData.speed) }
+          LinkField { label: "MTU"; value: modelData.mtu }
+          LinkField { label: "MAC"; value: modelData.mac }
+          Ui.Button {
+            visible: modelData.uuid !== ""
+            text: "Edit IP settings  ›"
+            focusable: true
+            fontSize: Style.font.caption
+            onClicked: root.openIpSettings(modelData.uuid)
+          }
+        }
+      }
+    }
 
     Column {
       id: ipForm
@@ -1275,20 +1453,26 @@ Panel {
 
     Column {
       id: column
-      visible: !root.ipEditing
+      visible: !root.ipEditing && !root.wiredView
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
       spacing: Style.space(12)
 
-      Ui.Button {
-        text: "IP settings  ›"
+      RowLayout {
         width: parent.width
-        focusable: true
-        onClicked: {
-          root.ipEditing = true
-          root.cancelPasswordPrompt()
-          root.ipRequest("list", [])
+        spacing: Style.space(8)
+        Ui.Button {
+          text: "IP settings  ›"
+          Layout.fillWidth: true
+          focusable: true
+          onClicked: root.openIpSettings("")
+        }
+        Ui.Button {
+          text: "Wired links  ›"
+          Layout.fillWidth: true
+          focusable: true
+          onClicked: root.openWired()
         }
       }
 

@@ -21,6 +21,54 @@ def read_profile(uuid):
     values += [''] * (6-len(values))
     return dict(zip(['name', 'type', 'method', 'addresses', 'gateway', 'dns'], values), uuid=uuid)
 
+def keyed(*args):
+    """Read `nmcli -t -f` output as a dict. Keys keep no `[n]` suffix; a key
+    that repeats (IP4.ADDRESS[1], [2]) becomes a comma-separated value."""
+    out = {}
+    for line in nm('-t', '-f', *args).splitlines():
+        key, _, value = line.partition(':')
+        key = key.split('[')[0]
+        out[key] = out[key] + ',' + value if out.get(key) and value else (out.get(key) or value)
+    return out
+
+def sysfs(dev, name):
+    try:
+        with open(f'/sys/class/net/{dev}/{name}') as f:
+            value = f.read().strip()
+    except OSError:
+        return ''
+    return '' if value.startswith('-') else value
+
+def wired_links():
+    """Every Ethernet device, Thunderbolt networking included, with its live
+    state and the saved profile it uses. Read-only."""
+    links = []
+    for line in nm('-t', '-f', 'DEVICE,TYPE', 'device', 'status').splitlines():
+        dev, _, kind = line.rpartition(':')
+        if kind != 'ethernet':
+            continue
+        d = keyed('GENERAL.STATE,GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.HWADDR,'
+                  'IP4.ADDRESS,IP4.GATEWAY,IP4.DNS', 'device', 'show', dev)
+        state = d.get('GENERAL.STATE', '')
+        link = {'device': dev,
+                'thunderbolt': dev.startswith('thunderbolt'),
+                'state': state.split('(', 1)[-1].rstrip(')') if '(' in state else state,
+                'connected': state.startswith('100'),
+                'mac': d.get('GENERAL.HWADDR', ''),
+                'speed': sysfs(dev, 'speed') if state.startswith('100') else '',
+                'mtu': sysfs(dev, 'mtu'),
+                'addresses': d.get('IP4.ADDRESS', ''),
+                'gateway': d.get('IP4.GATEWAY', ''),
+                'dns': d.get('IP4.DNS', ''),
+                'profile': d.get('GENERAL.CONNECTION', ''),
+                'uuid': d.get('GENERAL.CON-UUID', ''), 'method': '', 'defaultRoute': True}
+        if link['uuid']:
+            p = keyed('ipv4.method,ipv4.never-default', 'connection', 'show', 'uuid', link['uuid'])
+            link.update(method=p.get('ipv4.method', ''),
+                        defaultRoute=p.get('ipv4.never-default') != 'yes')
+        links.append(link)
+    return {'links': links}
+
 def current_static(uuid):
     profile = read_profile(uuid)
     if profile['type'] not in ('802-3-ethernet', '802-11-wireless'):
@@ -64,6 +112,8 @@ def main():
         return {'profiles': profiles, 'selected': read_profile(selected) if selected else None}
     if action == 'read':
         return read_profile(sys.argv[2])
+    if action == 'wired':
+        return wired_links()
     if action == 'current':
         return current_static(sys.argv[2])
     if action == 'save':

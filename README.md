@@ -38,6 +38,12 @@ lists the machine's saved Wi-Fi and Ethernet profiles and lets you switch a
 profile between DHCP and a fixed address, with an *Use current IP as fixed*
 shortcut that pre-fills from the subnet you are already on.
 
+**Wired links** — a screen reached with `e`, or the *Wired links ›* button.
+It shows every Ethernet device, Thunderbolt networking included: state, IPv4
+address and mode, gateway, DNS, whether it can take the default route, link
+speed, MTU and MAC. It only reads; *Edit IP settings ›* opens that link's
+profile in the IP settings screen.
+
 ## Install
 
 ```bash

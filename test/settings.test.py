@@ -176,6 +176,37 @@ class ReadTests(unittest.TestCase):
                     settings.main()
 
 
+class WiredTests(unittest.TestCase):
+    def wired(self, responses, sysfs=None):
+        fake = FakeNmcli(responses)
+        values = sysfs or {}
+        with mock.patch.object(settings.subprocess, 'run', fake), \
+                mock.patch.object(settings, 'sysfs', lambda dev, name: values.get((dev, name), '')):
+            with mock.patch.object(sys, 'argv', ['settings.py', 'wired']):
+                return settings.main(), fake
+
+    def test_lists_ethernet_and_thunderbolt_but_not_wifi(self):
+        result, fake = self.wired({
+            '-t -f DEVICE,TYPE device status': 'wlp1s0:wifi\nthunderbolt0:ethernet\nenp2s0:ethernet\nlo:loopback\n',
+            '-t -f GENERAL.STATE,GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.HWADDR,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show thunderbolt0': (
+                'GENERAL.STATE:100 (connected)\nGENERAL.CONNECTION:tb-link\nGENERAL.CON-UUID:u-tb\n'
+                'GENERAL.HWADDR:02:AA:BB:CC:DD:EE\nIP4.ADDRESS[1]:10.20.0.1/24\nIP4.ADDRESS[2]:10.20.0.9/24\nIP4.GATEWAY:\n'),
+            '-t -f GENERAL.STATE,GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.HWADDR,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show enp2s0': (
+                'GENERAL.STATE:20 (unavailable)\nGENERAL.CONNECTION:\nGENERAL.CON-UUID:\nGENERAL.HWADDR:9C:00:00:00:00:01\n'),
+            '-t -f ipv4.method,ipv4.never-default connection show uuid u-tb': 'ipv4.method:manual\nipv4.never-default:yes\n',
+        }, sysfs={('thunderbolt0', 'speed'): '40000', ('thunderbolt0', 'mtu'): '65520', ('enp2s0', 'mtu'): '1500'})
+        tb, eth = result['links']
+        self.assertEqual([tb['device'], eth['device']], ['thunderbolt0', 'enp2s0'])
+        self.assertTrue(tb['thunderbolt'])
+        self.assertEqual(tb['addresses'], '10.20.0.1/24,10.20.0.9/24')
+        self.assertEqual(tb['mac'], '02:AA:BB:CC:DD:EE')
+        self.assertEqual((tb['state'], tb['speed'], tb['mtu']), ('connected', '40000', '65520'))
+        self.assertEqual((tb['method'], tb['defaultRoute']), ('manual', False))
+        self.assertEqual((eth['state'], eth['uuid'], eth['speed']), ('unavailable', '', ''))
+        # Read-only: never modifies a connection.
+        self.assertFalse(any('modify' in c for c in fake.calls))
+
+
 class PublicIpTests(unittest.TestCase):
     def test_public_ip_validates_the_address(self):
         class FakeResponse:
