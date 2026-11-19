@@ -164,6 +164,7 @@ ShellRoot {
     plugin.bandCurrent = "5";
     plugin.bandSelected = "auto";
     plugin.bandAvailable = ["2.4", "5"];
+    plugin.pingEnabled = true;
     plugin.downloadRate = 2457600;
     plugin.uploadRate = 312000;
     plugin.routerPingLatency = 2.1;

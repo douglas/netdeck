@@ -258,6 +258,45 @@ class RenameTests(unittest.TestCase):
         self.assertEqual(self.modify(fake), [])
 
 
+class DetailsTests(unittest.TestCase):
+    """`details` stands in for `omarchy-network-status --verbose` when pings
+    are off, so it must report the same fields and never run ping."""
+
+    ROUTE = json.dumps([{'dev': 'wlan0', 'gateway': '192.168.1.1', 'prefsrc': '192.168.1.50'}])
+    ADDR = json.dumps([{'addr_info': [{'family': 'inet6', 'prefixlen': 64},
+                                      {'family': 'inet', 'prefixlen': 24}]}])
+    IW = ('Connected to aa:bb:cc:dd:ee:ff (on wlan0)\n'
+          '\tSSID: Caf\\xc3\\xa9\n\tfreq: 5180.0\n\tsignal: -48 dBm\n'
+          '\ttx bitrate: 866.7 MBit/s VHT-MCS 9\n\trx bitrate: 650.0 MBit/s\n')
+    SYSFS = {'statistics/rx_bytes': '100', 'statistics/tx_bytes': '200',
+             'speed': '2500', 'duplex': 'full'}
+
+    def details(self, responses, wireless):
+        fake = FakeNmcli(responses)
+        with mock.patch.object(settings.subprocess, 'run', fake), \
+                mock.patch.object(settings, 'sysfs', lambda dev, name: self.SYSFS.get(name, '')), \
+                mock.patch.object(settings.os.path, 'isdir', lambda path: wireless):
+            return settings.link_details(), fake
+
+    def test_reports_wifi_fields_without_pinging(self):
+        result, fake = self.details({'ip -j route get': self.ROUTE, 'ip -j addr show': self.ADDR,
+                                     'iw dev wlan0 link': self.IW}, wireless=True)
+        self.assertEqual(result, {'iface': 'wlan0', 'ip': '192.168.1.50', 'prefix': '24',
+                                  'gateway': '192.168.1.1', 'rx_bytes': '100', 'tx_bytes': '200',
+                                  'type': 'wifi', 'ssid': 'Caf\\xc3\\xa9', 'signal_dbm': '-48',
+                                  'freq': '5180.0', 'bitrate': '866.7 MBit/s'})
+        self.assertNotIn('ping', {args[0] for args in fake.calls})
+
+    def test_reports_ethernet_speed_and_duplex(self):
+        result, _ = self.details({'ip -j route get': self.ROUTE, 'ip -j addr show': self.ADDR}, wireless=False)
+        self.assertEqual(result['type'], 'ethernet')
+        self.assertEqual((result['speed'], result['duplex']), ('2500', 'full'))
+
+    def test_no_route_reports_nothing(self):
+        result, _ = self.details({'ip -j route get': ValueError('unreachable')}, wireless=False)
+        self.assertEqual(result, {})
+
+
 class PublicIpTests(unittest.TestCase):
     def test_public_ip_validates_the_address(self):
         class FakeResponse:

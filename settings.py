@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import os
 import subprocess
 import sys
 import urllib.error
@@ -38,6 +39,57 @@ def sysfs(dev, name):
     except OSError:
         return ''
     return '' if value.startswith('-') else value
+
+def output(*args):
+    """stdout of a read-only command, or '' when it is missing or fails."""
+    try:
+        p = subprocess.run(list(args), capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+    return p.stdout if p.returncode == 0 else ''
+
+def link_details():
+    """The fields `omarchy-network-status --verbose` reports, without its two
+    pings. `ip route get` only reads the local routing table, so nothing here
+    sends a packet. Read-only."""
+    try:
+        route = json.loads(output('ip', '-j', 'route', 'get', '1.1.1.1') or '[]')[0]
+    except (ValueError, IndexError):
+        return {}
+    dev = route.get('dev', '')
+    if not dev:
+        return {}
+    try:
+        addrs = json.loads(output('ip', '-j', 'addr', 'show', dev) or '[]')[0].get('addr_info', [])
+    except (ValueError, IndexError):
+        addrs = []
+    prefix = next((str(a.get('prefixlen', '')) for a in addrs if a.get('family') == 'inet'), '')
+    out = {'iface': dev, 'ip': route.get('prefsrc', ''), 'prefix': prefix,
+           'gateway': route.get('gateway', '')}
+    for name in ('rx_bytes', 'tx_bytes'):
+        value = sysfs(dev, 'statistics/' + name)
+        if value:
+            out[name] = value
+    if not os.path.isdir(f'/sys/class/net/{dev}/wireless'):
+        out['type'] = 'ethernet'
+        for name in ('speed', 'duplex'):
+            value = sysfs(dev, name)
+            if value:
+                out[name] = value
+        return out
+    out['type'] = 'wifi'
+    link = output('iw', 'dev', dev, 'link')
+    if link.strip():
+        fields = {}
+        for line in link.splitlines():
+            key, sep, value = line.strip().partition(': ')
+            if sep and key not in fields:
+                fields[key] = value
+        out['ssid'] = fields.get('SSID', '')
+        out['signal_dbm'] = fields.get('signal', '').split(' ')[0]
+        out['freq'] = fields.get('freq', '').split(' ')[0]
+        out['bitrate'] = ' '.join(fields.get('tx bitrate', '').split(' ')[:2])
+    return out
 
 def wired_links():
     """Every Ethernet device, Thunderbolt networking included, with its live
@@ -110,7 +162,7 @@ def current_static(uuid):
 
 def public_ip():
     request = urllib.request.Request('https://api.ipify.org?format=json',
-                                     headers={'User-Agent': 'Netdeck/1.0.0'})
+                                     headers={'User-Agent': 'Netdeck/1.1.0'})
     opener = urllib.request.build_opener(NoRedirectHandler)
     with opener.open(request, timeout=8) as response:
         data = json.loads(response.read(1024))
@@ -135,6 +187,8 @@ def main():
         return rename(sys.argv[2], sys.argv[3])
     if action == 'wired':
         return wired_links()
+    if action == 'details':
+        return link_details()
     if action == 'current':
         return current_static(sys.argv[2])
     if action == 'save':

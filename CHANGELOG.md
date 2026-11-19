@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0
+
+- Ping is now opt-in, behind a switch beside the *Ping* value, and off by
+  default. The stock widget's `omarchy-network-status --verbose` pings your
+  gateway and 1.1.1.1 on every 1.5 s refresh. With the switch off, the panel
+  reads the same details through `settings.py details`, which sends nothing.
+  The choice is remembered in `netdeck.json`.
+- README: list every network request Netdeck can make, and when.
+
 ## 1.0.0
 
 - Released as Netdeck (`io.github.douglas.netdeck`), from Rohi Rikman's

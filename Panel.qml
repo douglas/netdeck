@@ -141,10 +141,31 @@ Panel {
   // Hide links with no cable or peer, so only the live ones show. Kept in
   // $XDG_STATE_HOME/omarchy/netdeck.json so it survives a shell restart.
   property bool wiredConnectedOnly: false
+  // Off by default: when on, every details poll runs `omarchy-network-status
+  // --verbose`, which pings the gateway and 1.1.1.1. When off, the same fields
+  // come from `settings.py details`, which sends nothing. Saved with
+  // wiredConnectedOnly.
+  property bool pingEnabled: false
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy"
+  function saveState() {
+    stateFile.setText(JSON.stringify({ wiredConnectedOnly: wiredConnectedOnly, pingEnabled: pingEnabled }) + "\n")
+  }
   function setWiredConnectedOnly(on) {
     wiredConnectedOnly = on
-    stateFile.setText(JSON.stringify({ wiredConnectedOnly: on }) + "\n")
+    saveState()
+  }
+  function setPingEnabled(on) {
+    pingEnabled = on
+    saveState()
+    clearPingSamples()
+  }
+  function clearPingSamples() {
+    pingIface = ""
+    routerPingSamples = []
+    internetPingSamples = []
+    routerPingLatency = -1
+    internetPingLatency = -1
+    internetPingPacketLoss = 0
   }
   Process {
     id: stateDirProc
@@ -157,7 +178,11 @@ Panel {
     atomicWrites: true
     printErrors: false
     onLoaded: {
-      try { root.wiredConnectedOnly = JSON.parse(text()).wiredConnectedOnly === true } catch (e) {}
+      try {
+        var saved = JSON.parse(text())
+        root.wiredConnectedOnly = saved.wiredConnectedOnly === true
+        root.pingEnabled = saved.pingEnabled === true
+      } catch (e) {}
     }
   }
   readonly property var wiredShown: wiredConnectedOnly ? wiredLinks.filter(function(l) { return l.connected }) : wiredLinks
@@ -531,12 +556,7 @@ Panel {
       prevSampleTime = 0
       downloadRate = 0
       uploadRate = 0
-      pingIface = ""
-      routerPingSamples = []
-      internetPingSamples = []
-      routerPingLatency = -1
-      internetPingLatency = -1
-      internetPingPacketLoss = 0
+      clearPingSamples()
       setScannerEnabled(false)
     }
   }
@@ -712,8 +732,14 @@ Panel {
     return Model.headerDetail(info)
   }
 
+  // The helper prints tab-separated lines; `settings.py details` prints JSON.
   function updateDetails(raw) {
-    var next = Model.parseKeyValue(raw)
+    var next = {}
+    if (String(raw).charAt(0) === "{") {
+      try { next = JSON.parse(raw) } catch (e) {}
+      if (next.error) next = {}
+      if (next.ssid !== undefined) next.ssid = Model.decodeIwSsid(next.ssid)
+    } else next = Model.parseKeyValue(raw)
 
     // A band change tears the link down and brings it back, and the status
     // command reports nothing at all while there is no route. Publishing that
@@ -1016,7 +1042,9 @@ Panel {
   // Pulls everything we want about the active route's interface in one shot.
   Process {
     id: detailsProc
-    command: ["omarchy-network-status", "--verbose"]
+    command: root.pingEnabled
+      ? ["omarchy-network-status", "--verbose"]
+      : ["python3", Qt.resolvedUrl("settings.py").toString().replace("file://", ""), "details"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.updateDetails(text)
@@ -1806,13 +1834,31 @@ Panel {
           // them down. They now hold their place and read "--" until there is
           // a sample.
           InfoLabel { text: "Ping" }
-          DetailValue {
-            text: root.formatPingLatency(root.internetPingLatency)
-            color: root.internetPingPacketLoss > 0 ? root.bar.urgent : root.bar.foreground
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.space(6)
+            DetailValue {
+              text: root.pingEnabled ? root.formatPingLatency(root.internetPingLatency) : "Off"
+              color: root.internetPingPacketLoss > 0 ? root.bar.urgent : root.bar.foreground
+            }
+            ToggleSwitch {
+              id: pingSwitch
+              trackHeight: Math.round(Style.font.bodySmall * 1.2)
+              cursorPad: Style.space(3)
+              Layout.alignment: Qt.AlignVCenter
+              checked: root.pingEnabled
+              foreground: root.bar.foreground
+              onToggled: root.setPingEnabled(!root.pingEnabled)
+              PanelToolTip {
+                visible: pingSwitch.containsMouse
+                text: "Ping your gateway and 1.1.1.1 every 1.5 s while this panel is open"
+                fontFamily: root.bar.fontFamily
+              }
+            }
           }
           InfoLabel { text: "Packet Loss" }
           DetailValue {
-            text: root.formatPacketLoss(root.internetPingPacketLoss)
+            text: root.pingEnabled ? root.formatPacketLoss(root.internetPingPacketLoss) : "Off"
             color: root.internetPingPacketLoss > 0 ? root.bar.urgent : root.bar.foreground
           }
 

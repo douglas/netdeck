@@ -50,6 +50,10 @@ profile and switch it between DHCP and a fixed IPv4 address, gateway and DNS.
 [ipify.org](https://api.ipify.org), only when you click the button. The button
 names the service, because the lookup is a request to a third party.
 
+**Ping, opt-in**: the switch beside *Ping* turns latency and packet loss on.
+It is off by default and remembered in `netdeck.json`. See
+[Network access](#network-access) for what it sends.
+
 ## Requirements
 
 - Omarchy with the Quickshell shell (Quattro)
@@ -57,7 +61,25 @@ names the service, because the lookup is a request to a third party.
 - Python 3 (standard library only)
 - `bash`, `ip` and `iw`, which the stock widget already uses
 
-No background service and no network access except the public IPv4 lookup.
+No background service. See [Network access](#network-access) for the only
+requests it makes.
+
+## Network access
+
+Netdeck sends nothing on its own. It only reaches the network after you choose
+to:
+
+| What | Sends | When |
+|---|---|---|
+| *Show via ipify.org* | One HTTPS request to `api.ipify.org` | Each click |
+| *Ping* switch | One ICMP echo to your gateway and one to `1.1.1.1` | Every 1.5 s while the panel is open and the switch is on |
+| Speedometer button | Whatever Omarchy's own `omarchy.speedtest` panel does | When you click it and start a test there |
+
+The pings come from Omarchy's `omarchy-network-status --verbose`, the same
+command the stock widget runs every 1.5 s. With the switch off, Netdeck reads
+the interface, address, gateway, byte counts and link details itself
+(`settings.py details`). It uses `ip route get`, which only reads the local
+routing table, plus `/sys` and `iw`, so no packet leaves the machine.
 
 ## Install
 
@@ -104,7 +126,8 @@ rm -f ~/.local/state/omarchy/netdeck.json
 from the `Quickshell.Networking` types the stock widget already uses.
 
 Everything that talks to NetworkManager goes through `settings.py`. It takes
-one action (`public`, `list`, `read`, `current`, `save`, `wired` or `rename`),
+one action (`public`, `list`, `read`, `current`, `save`, `wired`, `rename` or
+`details`),
 prints one JSON object, and reports errors as `{"error": "..."}`. It calls
 `nmcli` with argument lists, never through a shell.
 
@@ -115,7 +138,7 @@ What it can change, and the checks before it does:
   profile type. Going back to DHCP clears the static address and gateway.
 - `rename` changes only the profile name. It refuses empty names, control
   characters, names over 64 characters, and a name another connection uses.
-- `wired` only reads.
+- `wired` and `details` only read.
 
 Wi-Fi passphrases never reach `settings.py`: the stock code passes them on
 stdin to `nmcli`, because command-line arguments are visible in `/proc`.
