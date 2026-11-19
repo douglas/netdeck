@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Ping only runs while the panel is open. A Wi-Fi or band action that finished
+  after the panel closed could send one more ping.
+- README: the speed test starts as soon as you click the speedometer.
+
 ## 1.1.0
 
 - Ping is now opt-in, behind a switch beside the *Ping* value, and off by

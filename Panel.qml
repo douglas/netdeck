@@ -142,9 +142,9 @@ Panel {
   // $XDG_STATE_HOME/omarchy/netdeck.json so it survives a shell restart.
   property bool wiredConnectedOnly: false
   // Off by default: when on, every details poll runs `omarchy-network-status
-  // --verbose`, which pings the gateway and 1.1.1.1. When off, the same fields
-  // come from `settings.py details`, which sends nothing. Saved with
-  // wiredConnectedOnly.
+  // --verbose`, which pings the gateway and 1.1.1.1. When off, or while the
+  // panel is closed, the same fields come from `settings.py details`, which
+  // sends nothing. Saved with wiredConnectedOnly.
   property bool pingEnabled: false
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy"
   function saveState() {
@@ -1040,9 +1040,11 @@ Panel {
   Component.onCompleted: refresh()
 
   // Pulls everything we want about the active route's interface in one shot.
+  // Ping only while the panel is open: an action that finishes after it
+  // closes still calls refresh(), and that must not send a probe.
   Process {
     id: detailsProc
-    command: root.pingEnabled
+    command: root.pingEnabled && root.opened
       ? ["omarchy-network-status", "--verbose"]
       : ["python3", Qt.resolvedUrl("settings.py").toString().replace("file://", ""), "details"]
     stdout: StdioCollector {

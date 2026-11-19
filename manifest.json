@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.douglas.netdeck",
   "name": "Netdeck",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Douglas Soares de Andrade",
   "description": "Wi-Fi, Ethernet and Thunderbolt links in one bar panel: live state, IP, MTU and speed, copy, rename, and DHCP/static IPv4.",
   "kinds": [

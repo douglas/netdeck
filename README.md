@@ -73,7 +73,7 @@ to:
 |---|---|---|
 | *Show via ipify.org* | One HTTPS request to `api.ipify.org` | Each click |
 | *Ping* switch | One ICMP echo to your gateway and one to `1.1.1.1` | Every 1.5 s while the panel is open and the switch is on |
-| Speedometer button | Whatever Omarchy's own `omarchy.speedtest` panel does | When you click it and start a test there |
+| Speedometer button | Whatever Omarchy's own `omarchy.speedtest` panel does | When you click it; the test starts right away |
 
 The pings come from Omarchy's `omarchy-network-status --verbose`, the same
 command the stock widget runs every 1.5 s. With the switch off, Netdeck reads
